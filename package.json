@@ -1,0 +1,13 @@
+{
+  "name": "podarok-olya",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "build": "node scripts/build.mjs",
+    "check": "node scripts/check.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "publish:pages": "node scripts/publish-pages.mjs"
+  }
+}
