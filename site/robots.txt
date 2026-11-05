@@ -1,2 +1,8 @@
+User-agent: TelegramBot
+User-agent: WhatsApp
+User-agent: facebookexternalhit
+User-agent: Twitterbot
+Allow: /
+
 User-agent: *
 Disallow: /
