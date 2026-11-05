@@ -1,7 +1,8 @@
 import { spawnSync } from 'node:child_process';
-import { unlink } from 'node:fs/promises';
+import { readFile, unlink } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { preservePagesDomain } from './pages-domain.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const repo = 'sickabroad66-glitch/podarok-olya';
@@ -24,6 +25,12 @@ if (remoteBranch) {
   run([...git, 'fetch', 'origin', 'gh-pages']);
   parent = run(['git', 'rev-parse', 'FETCH_HEAD']);
 }
+const previousDomainFile = parent && run(['git', 'ls-tree', '--name-only', parent, '--', 'CNAME'])
+  ? run(['git', 'show', `${parent}:CNAME`]) : undefined;
+const nextDomainFile = await readFile(resolve(root, 'dist/CNAME'), 'utf8').catch(error => {
+  if (error.code !== 'ENOENT') throw error;
+});
+preservePagesDomain(previousDomainFile, nextDomainFile);
 const index = resolve(root, run(['git', 'rev-parse', '--git-path', 'pages-release.index']));
 await unlink(index).catch(error => { if (error.code !== 'ENOENT') throw error; });
 try {
@@ -32,7 +39,7 @@ try {
   run([...treeGit, 'add', '--all', '--', '.'], { env, cwd: resolve(root, 'dist') });
   const tree = run([...treeGit, 'write-tree'], { env });
   const paths = run(['git', 'ls-tree', '-r', '--name-only', tree]).split('\n');
-  if (!paths.includes('index.html') || paths.some(path => !['index.html', 'app.js', 'styles.css', 'robots.txt', '.nojekyll'].includes(path) && !/^(?:assets|data|lib)\//.test(path))) {
+  if (!paths.includes('index.html') || paths.some(path => !['index.html', 'app.js', 'styles.css', 'robots.txt', 'CNAME', '.nojekyll'].includes(path) && !/^(?:assets|data|lib)\//.test(path))) {
     throw new Error('Unexpected files in publication tree. Nothing uploaded.');
   }
   const commit = run(['git', 'commit-tree', tree, ...(parent ? ['-p', parent] : [])], {
