@@ -248,6 +248,15 @@ export const europeMedia = [
     "alt": "Вся семья на прогулке"
   },
   {
+    "id": "europe-37",
+    "type": "image",
+    "src": "assets/europe/europe-37.jpg",
+    "preview": "assets/europe/europe-37-preview.jpg",
+    "width": 1280,
+    "height": 850,
+    "alt": "Семейная прогулка у каменных арок"
+  },
+  {
     "id": "europe-27",
     "type": "image",
     "src": "assets/europe/europe-27.jpg",
