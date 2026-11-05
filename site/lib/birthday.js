@@ -1,12 +1,13 @@
 import { tidyRussianText } from './typography.js';
 
 const candlePoints = [
-  { x: 33.65, y: 13.05, order: 0 },
-  { x: 50.55, y: 11.3, order: 2 },
-  { x: 67.35, y: 13.9, order: 4 },
-  { x: 41.7, y: 24.05, order: 1 },
-  { x: 59.4, y: 24.6, order: 3 },
+  { x: 24.55, y: 21.25, order: 0 },
+  { x: 35.97, y: 10.4, order: 1 },
+  { x: 49.94, y: 7.65, order: 2 },
+  { x: 63.85, y: 10.95, order: 3 },
+  { x: 75.52, y: 21.9, order: 4 },
 ];
+const candleAnchorY = Math.min(...candlePoints.map(point => point.y)) / 100;
 
 // Fifteen small plates surround the cake; the middle stays clear for the greeting.
 const plates = [
@@ -52,7 +53,7 @@ export function createBirthdayHero(reducedMotion) {
       <p></p>
     </div>
     <div class="birthday-hero__cake">
-      <img class="birthday-hero__cake-image" src="assets/art/birthday-cake-mobile-v2.png" srcset="assets/art/birthday-cake-mobile-v2.png 720w, assets/art/birthday-cake-v2.png 1254w" sizes="(max-width: 600px) 87vw, (max-width: 900px) 500px, 550px" width="1254" height="1254" alt="Праздничный торт на белой тарелке с пятью золотыми свечами" fetchpriority="high">
+      <img class="birthday-hero__cake-image" src="assets/art/birthday-cake-bento-mobile-v3.png" srcset="assets/art/birthday-cake-bento-mobile-v3.png 720w, assets/art/birthday-cake-bento-v3.png 1254w" sizes="(max-width: 600px) 87vw, (max-width: 900px) 500px, 550px" width="1254" height="1254" alt="Белый торт с надписью «25. Жизнь только начинается», красным сердцем и пятью золотыми свечами" fetchpriority="high">
       <div class="birthday-hero__candles" aria-hidden="true"></div>
     </div>
     </div>`;
@@ -85,7 +86,7 @@ export function createBirthdayHero(reducedMotion) {
   let pending = false;
   function update() {
     pending = false;
-    const candleY = hero.offsetTop + cake.offsetTop + cake.offsetWidth * 0.113;
+    const candleY = hero.offsetTop + cake.offsetTop + cake.offsetWidth * candleAnchorY;
     const progress = birthdayScrollProgress(window.scrollY, candleY, window.innerHeight);
     hero.style.setProperty('--birthday-progress', progress.toFixed(4));
     let allOut = true;
