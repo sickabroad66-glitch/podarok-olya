@@ -32,8 +32,11 @@ export function candleStrength(progress, order) {
   return Math.max(0, Math.min(1, (threshold - Math.max(0, progress)) / 0.14));
 }
 
-export function birthdayScrollProgress(scrollY, scrollDistance, startOffset = 0) {
-  return Math.max(0, Math.min(1, (scrollY - startOffset) / Math.max(1, scrollDistance)));
+export function birthdayScrollProgress(scrollY, candleY, viewportHeight) {
+  // Extinguish while the candles move through the visible viewport, without pinning it.
+  const start = Math.max(0, candleY - viewportHeight * 0.78);
+  const end = Math.max(start + 96, candleY - 48);
+  return Math.max(0, Math.min(1, (scrollY - start) / (end - start)));
 }
 
 export function createBirthdayHero(reducedMotion) {
@@ -53,7 +56,7 @@ export function createBirthdayHero(reducedMotion) {
       <div class="birthday-hero__candles" aria-hidden="true"></div>
     </div>
     </div>`;
-  const stage = hero.querySelector('.birthday-hero__stage');
+  const cake = hero.querySelector('.birthday-hero__cake');
   hero.querySelector('.birthday-hero__copy p').textContent = tidyRussianText('Тебе 25. Мы собрали моменты, которые хочется пережить ещё раз.');
 
   const plateContainer = hero.querySelector('.birthday-hero__plates');
@@ -82,9 +85,8 @@ export function createBirthdayHero(reducedMotion) {
   let pending = false;
   function update() {
     pending = false;
-    const scrollDistance = hero.offsetHeight - stage.offsetHeight;
-    const stageOffset = Math.max(0, -Number.parseFloat(getComputedStyle(stage).top));
-    const progress = birthdayScrollProgress(window.scrollY, scrollDistance, stageOffset);
+    const candleY = hero.offsetTop + cake.offsetTop + cake.offsetWidth * 0.113;
+    const progress = birthdayScrollProgress(window.scrollY, candleY, window.innerHeight);
     hero.style.setProperty('--birthday-progress', progress.toFixed(4));
     let allOut = true;
     for (const { element, order } of candles) {
@@ -101,6 +103,7 @@ export function createBirthdayHero(reducedMotion) {
   }
   window.addEventListener('scroll', schedule, { passive: true });
   window.addEventListener('resize', schedule, { passive: true });
+  reducedMotion.addEventListener('change', schedule);
   requestAnimationFrame(update);
   return hero;
 }

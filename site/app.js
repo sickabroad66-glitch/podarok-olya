@@ -45,8 +45,10 @@ function makePlayer(memory) {
   audio.src = memory.audio.src;
   coordinator.register(audio);
   const play = makeButton('player__play', `Воспроизвести запись: ${memory.narrator}`, 'play');
+  play.innerHTML = `<span class="player__symbol player__symbol--play">${icon('play')}</span><span class="player__symbol player__symbol--pause">${icon('pause')}</span>`;
   const hint = el('span', 'player__hint', memory.audioLabel ?? memory.narrator);
   const content = el('div', 'player__content');
+  const contentInner = el('div', 'player__inner');
   content.id = `${memory.id}-audio-details`;
   content.inert = true;
   content.setAttribute('aria-hidden', 'true');
@@ -81,10 +83,12 @@ function makePlayer(memory) {
   const status = el('p', 'player__status');
   status.setAttribute('role', 'status');
   status.hidden = true;
-  content.append(heading, wave, status);
+  contentInner.append(heading, wave, status);
+  content.append(contentInner);
   player.append(play, hint, content, audio);
 
   function expandPlayer() {
+    if (player.classList.contains('is-expanded')) return;
     player.classList.add('is-expanded');
     content.inert = false;
     content.removeAttribute('aria-hidden');
@@ -101,7 +105,6 @@ function makePlayer(memory) {
     seek.setAttribute('aria-valuetext', `${formatTime(audio.currentTime)} из ${formatTime(duration)}`);
     const playing = !audio.paused && !audio.ended;
     if (playing) expandPlayer();
-    play.innerHTML = icon(playing ? 'pause' : 'play');
     play.setAttribute('aria-label', `${playing ? 'Приостановить' : 'Воспроизвести'} запись: ${memory.narrator}`);
     player.classList.toggle('is-playing', playing);
   }
@@ -161,66 +164,133 @@ previousViewer.innerHTML = icon('left');
 nextViewer.innerHTML = icon('right');
 let activeGallery;
 let activeIndex = 0;
+let openedIndex = 0;
 let returnFocus;
+let activeMedia;
+let pendingMedia;
 let unregisterVideo;
 let previousOverflow = '';
 let viewerClosing = false;
+let mediaRequest = 0;
+const mediaAnimations = new Set();
+const motionEase = 'cubic-bezier(.22,1,.36,1)';
 
-function clearViewerMedia() {
-  const video = stage.querySelector('video');
-  if (video) {
-    video.pause();
-    video.removeAttribute('src');
-    video.load();
+function animateMedia(node, frames, duration = 380) {
+  if (reducedMotion.matches) {
+    Object.assign(node.style, frames.at(-1));
+    return Promise.resolve();
   }
-  unregisterVideo?.();
-  unregisterVideo = undefined;
-  stage.replaceChildren();
+  const animation = node.animate(frames, { duration, easing: motionEase, fill: 'both' });
+  mediaAnimations.add(animation);
+  return animation.finished.then(() => {
+    try { animation.commitStyles(); } catch { /* The dialog may already be closed. */ }
+  }).catch(() => {}).finally(() => {
+    animation.cancel();
+    mediaAnimations.delete(animation);
+  });
 }
 
-function showViewerMedia(index) {
+function cancelMediaMotion() {
+  for (const animation of mediaAnimations) {
+    try { animation.commitStyles(); } catch { /* A pending image may have been detached. */ }
+    animation.cancel();
+  }
+  mediaAnimations.clear();
+}
+
+function currentFrame(node) {
+  const style = getComputedStyle(node);
+  return { opacity: style.opacity, transform: style.transform };
+}
+
+function containedImageRect(image) {
+  const box = image.getBoundingClientRect();
+  const width = image.naturalWidth || image.width;
+  const height = image.naturalHeight || image.height;
+  const scale = Math.min(box.width / width, box.height / height);
+  return { left: box.left + (box.width - width * scale) / 2,
+    top: box.top + (box.height - height * scale) / 2, width: width * scale, height: height * scale };
+}
+
+function zoomTransform(from, to) {
+  if (!from?.width || !from?.height || !to.width || !to.height) return 'scale(.96)';
+  const x = from.left + from.width / 2 - to.left - to.width / 2;
+  const y = from.top + from.height / 2 - to.top - to.height / 2;
+  return `translate(${x}px, ${y}px) scale(${from.width / to.width}, ${from.height / to.height})`;
+}
+
+function disposeMedia(element) {
+  if (element.tagName === 'VIDEO') {
+    element.pause();
+    element.removeAttribute('src');
+    element.load();
+  }
+  element.remove();
+}
+
+function clearViewerMedia() {
+  mediaRequest += 1;
+  cancelMediaMotion();
+  unregisterVideo?.();
+  unregisterVideo = undefined;
+  for (const element of [...stage.children]) disposeMedia(element);
+  activeMedia = undefined;
+  pendingMedia = undefined;
+  stage.setAttribute('aria-busy', 'false');
+}
+
+async function showViewerMedia(index, { originRect, force = false } = {}) {
   if (viewerClosing) return;
-  activeIndex = clampIndex(index, activeGallery.memory.media.length);
-  clearViewerMedia();
+  const target = clampIndex(index, activeGallery.memory.media.length);
+  if (!force && !originRect && target === activeIndex && activeMedia && !pendingMedia) return;
+  const direction = target >= activeIndex ? 1 : -1;
+  const request = ++mediaRequest;
+  activeIndex = target;
+  cancelMediaMotion();
+  for (const element of [...stage.children]) if (element !== activeMedia) disposeMedia(element);
+  pendingMedia = undefined;
+  if (activeMedia?.tagName === 'VIDEO') activeMedia.pause();
+  unregisterVideo?.();
+  unregisterVideo = undefined;
   viewerError.hidden = true;
-  const media = activeGallery.memory.media[activeIndex];
+  stage.setAttribute('aria-busy', 'true');
+  const media = activeGallery.memory.media[target];
   const isVideo = media.type === 'video';
-  const element = el(isVideo ? 'video' : 'img', 'viewer__media');
+  const element = el(isVideo ? 'video' : 'img', 'viewer__media is-pending');
+  element.width = media.width;
+  element.height = media.height;
+  pendingMedia = element;
+  const isCurrent = () => request === mediaRequest && viewer.open && !viewerClosing;
+  function reportError() {
+    if (!isCurrent()) return;
+    stage.setAttribute('aria-busy', 'false');
+    viewerError.replaceChildren(document.createTextNode(isVideo ? 'Видео не загрузилось. ' : 'Фото не загрузилось. '));
+    const retry = el('button', 'viewer__retry', 'Повторить');
+    retry.type = 'button';
+    retry.addEventListener('click', () => showViewerMedia(target, { force: true }));
+    viewerError.append(retry);
+    viewerError.hidden = false;
+  }
+  element.addEventListener('error', reportError);
   if (isVideo) {
     element.controls = true;
     element.playsInline = true;
     element.preload = 'metadata';
     element.poster = media.poster;
     element.setAttribute('aria-label', media.alt);
-    unregisterVideo = coordinator.register(element);
+    element.src = media.src;
   } else {
     element.alt = media.alt;
     element.draggable = false;
-  }
-  element.width = media.width;
-  element.height = media.height;
-  element.addEventListener('error', () => {
-    viewerError.replaceChildren(document.createTextNode(isVideo ? 'Видео не загрузилось. ' : 'Фото не загрузилось. '));
-    const retry = el('button', 'viewer__retry', 'Повторить');
-    retry.type = 'button';
-    retry.addEventListener('click', () => showViewerMedia(activeIndex));
-    viewerError.append(retry);
-    viewerError.hidden = false;
-  });
-  element.src = media.src;
-  stage.append(element);
-  viewerCounter.textContent = `${String(activeIndex + 1).padStart(2, '0')} / ${activeGallery.memory.media.length}`;
-  previousViewer.disabled = activeIndex === 0;
-  nextViewer.disabled = activeIndex === activeGallery.memory.media.length - 1;
-
-  if (!isVideo) {
+    // Show the cached film preview first, then upgrade without an empty frame.
+    element.src = media.preview;
     let start;
-    element.addEventListener('pointerdown', (event) => {
+    element.addEventListener('pointerdown', event => {
       start = event.isPrimary && event.button === 0 ? { x: event.clientX, y: event.clientY } : null;
       if (start) element.setPointerCapture(event.pointerId);
     });
     element.addEventListener('pointercancel', () => { start = null; });
-    element.addEventListener('pointerup', (event) => {
+    element.addEventListener('pointerup', event => {
       if (!start) return;
       const dx = event.clientX - start.x;
       const dy = event.clientY - start.y;
@@ -228,40 +298,87 @@ function showViewerMedia(index) {
       start = null;
     });
   }
+  stage.append(element);
+  viewerCounter.textContent = `${String(target + 1).padStart(2, '0')} / ${activeGallery.memory.media.length}`;
+  previousViewer.disabled = target === 0;
+  nextViewer.disabled = target === activeGallery.memory.media.length - 1;
+  if (!isVideo) {
+    try { await element.decode(); }
+    catch { reportError(); if (pendingMedia === element) pendingMedia = undefined; disposeMedia(element); return; }
+  }
+  if (!isCurrent()) { disposeMedia(element); return; }
+  const previous = activeMedia;
+  activeMedia = element;
+  pendingMedia = undefined;
+  element.classList.remove('is-pending');
+  stage.setAttribute('aria-busy', 'false');
+  if (isVideo) unregisterVideo = coordinator.register(element);
+  if (previous) {
+    previous.inert = true;
+    previous.setAttribute('aria-hidden', 'true');
+    animateMedia(previous, [currentFrame(previous), { opacity: 0, transform: `translateX(${-direction * 28}px) scale(.985)` }], 340)
+      .then(() => { if (previous !== activeMedia) disposeMedia(previous); });
+  }
+  const initialTransform = originRect && !isVideo
+    ? zoomTransform(originRect, element.getBoundingClientRect())
+    : `translateX(${direction * 36}px) scale(.985)`;
+  animateMedia(element, [{ opacity: originRect ? .25 : 0, transform: initialTransform },
+    { opacity: 1, transform: 'translate(0, 0) scale(1)' }], originRect ? 500 : 380);
+  if (!isVideo && media.src !== media.preview) {
+    const full = new Image();
+    full.src = media.src;
+    full.decode().then(() => {
+      if (isCurrent() && activeMedia === element) element.src = media.src;
+    }).catch(reportError);
+  }
 }
 
 function openViewer(gallery, index, trigger) {
+  if (viewer.open || viewerClosing) return;
   activeGallery = gallery;
+  openedIndex = index;
   returnFocus = trigger;
+  const sourceImage = trigger.querySelector('img');
+  const originRect = sourceImage ? containedImageRect(sourceImage) : undefined;
   previousOverflow = document.documentElement.style.overflow;
   document.documentElement.style.overflow = 'hidden';
+  viewer.style.opacity = '';
   viewer.style.setProperty('--ink', gallery.memory.theme.ink);
-  showViewerMedia(index);
   viewer.showModal();
+  showViewerMedia(index, { originRect });
 }
 
 async function requestViewerClose() {
   if (!viewer.open || viewerClosing) return;
   viewerClosing = true;
+  mediaRequest += 1;
+  cancelMediaMotion();
   if (!reducedMotion.matches) {
-    const animation = viewer.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180, easing: 'ease-out' });
-    await animation.finished.catch(() => {});
-    viewer.close();
-    animation.cancel();
-  } else viewer.close();
-  viewerClosing = false;
+    const closing = [animateMedia(viewer, [{ opacity: getComputedStyle(viewer).opacity }, { opacity: 0 }], 360)];
+    if (activeMedia) {
+      let target = 'translateY(18px) scale(.96)';
+      const sourceImage = returnFocus?.querySelector('img');
+      if (activeMedia.tagName === 'IMG' && activeIndex === openedIndex && sourceImage) {
+        const source = containedImageRect(sourceImage);
+        if (source.top + source.height > 0 && source.top < innerHeight) target = zoomTransform(source, activeMedia.getBoundingClientRect());
+      }
+      closing.push(animateMedia(activeMedia, [currentFrame(activeMedia), { opacity: 0, transform: target }], 360));
+    }
+    await Promise.all(closing);
+  }
+  if (viewer.open) viewer.close();
 }
 closeViewer.addEventListener('click', requestViewerClose);
 viewer.addEventListener('cancel', event => { event.preventDefault(); requestViewerClose(); });
 viewer.addEventListener('close', () => {
   clearViewerMedia();
   document.documentElement.style.overflow = previousOverflow;
-  // Keep the film exactly where it was when opened, including after viewing neighbours.
   returnFocus?.focus({ preventScroll: true });
+  viewerClosing = false;
 });
 previousViewer.addEventListener('click', () => showViewerMedia(activeIndex - 1));
 nextViewer.addEventListener('click', () => showViewerMedia(activeIndex + 1));
-viewer.addEventListener('keydown', (event) => {
+viewer.addEventListener('keydown', event => {
   if (event.target.matches('video, input')) return;
   if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
     event.preventDefault();

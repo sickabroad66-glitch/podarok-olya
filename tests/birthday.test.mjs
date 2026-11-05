@@ -19,14 +19,21 @@ test('five candles start lit and extinguish as the visitor scrolls down', () => 
   for (let i = 0; i < 5; i += 1) assert.equal(candleStrength(0.15, i), 1);
 });
 
-test('the scroll scene is reversible and stays inside its bounds', () => {
-  assert.equal(birthdayScrollProgress(-50, 800), 0);
-  assert.equal(birthdayScrollProgress(0, 800), 0);
-  assert.equal(birthdayScrollProgress(800, 800), 1);
-  assert.equal(birthdayScrollProgress(1000, 800), 1);
-  assert.equal(birthdayScrollProgress(400, 800), 0.5);
-  assert.equal(birthdayScrollProgress(200, 360, 370), 0);
-  assert.equal(birthdayScrollProgress(550, 360, 370), 0.5);
-  assert.equal(birthdayScrollProgress(730, 360, 370), 1);
-  assert(Number.isFinite(birthdayScrollProgress(10, 0)));
+test('normal page scrolling extinguishes candles before they leave the screen', () => {
+  for (const [candleY, viewport] of [[346, 844], [329, 568], [288, 390], [410, 1024]]) {
+    assert.equal(birthdayScrollProgress(-50, candleY, viewport), 0);
+    assert.equal(birthdayScrollProgress(0, candleY, viewport), 0);
+    assert.equal(birthdayScrollProgress(candleY - 48, candleY, viewport), 1);
+    assert.equal(birthdayScrollProgress(candleY + 500, candleY, viewport), 1);
+    assert(birthdayScrollProgress(candleY / 2, candleY, viewport) > 0);
+  }
+});
+
+test('candles below a short viewport wait until visible, and scrolling back relights them', () => {
+  assert.equal(birthdayScrollProgress(0, 600, 390), 0);
+  assert.equal(birthdayScrollProgress(200, 600, 390), 0);
+  assert(birthdayScrollProgress(400, 600, 390) > 0);
+  assert.equal(birthdayScrollProgress(600, 600, 390), 1);
+  assert.equal(birthdayScrollProgress(200, 600, 390), 0);
+  assert(Number.isFinite(birthdayScrollProgress(10, 0, 0)));
 });
