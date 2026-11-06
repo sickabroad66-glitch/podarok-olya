@@ -438,6 +438,11 @@ function makeMemory(memory, nextMemory) {
       failure.hidden = true;
     });
     frame.append(image, failure);
+    if (memory.numberFrames) {
+      const sequence = el('span', 'film__sequence', String(index + 1).padStart(2, '0'));
+      sequence.setAttribute('aria-hidden', 'true');
+      frame.append(sequence);
+    }
     if (media.type === 'video') {
       const badge = el('span', 'film__video');
       badge.innerHTML = icon('play');

@@ -53,6 +53,7 @@ button:focus-visible, .player__wave:focus-within { outline: 2px solid var(--acce
 .film__rail::-webkit-scrollbar { display: none; }
 .film__frame { position: relative; flex: 0 0 var(--frame-width); width: var(--frame-width); aspect-ratio: 3 / 4; padding: 0; overflow: hidden; border: 0; background: #3b3b31; color: #fff8ec; scroll-snap-align: start; }
 .film__image { position: relative; display: block; width: 100%; height: 100%; object-fit: contain; filter: none; }
+.film__sequence { position: absolute; top: 9px; left: 10px; padding: 4px 6px; border-radius: 4px; background: #2d2019a6; color: #fff3d8; font: 500 11px/1.1 ui-monospace, monospace; letter-spacing: .06em; pointer-events: none; }
 .film__frame:focus-visible { outline-offset: -5px; outline-color: #fff3da; z-index: 1; }
 .film__video { position: absolute; inset: auto 10px 10px auto; display: flex; align-items: center; gap: 5px; padding: 6px 9px 6px 5px; border: 1px solid #fff6; border-radius: 30px; color: white; background: #263a30b8; backdrop-filter: blur(12px); font-size: 11px; font-variant-numeric: tabular-nums; }
 .film__video svg { width: 18px; height: 18px; }
