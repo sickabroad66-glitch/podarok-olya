@@ -77,6 +77,12 @@ export const memories = [
     narrator: 'Папа',
     audioLabel: 'Папа рассказывает',
     numberFrames: true,
+    inscription: {
+      src: 'assets/art/childhood-ink-signature-v1.png',
+      alt: 'Дима и Саня Лох — надпись ручкой на странице альбома',
+      width: 1100,
+      height: 733,
+    },
     summary: [
       'Детство, Кама и семейные истории, которые помнит папа.',
       'На записи чистый экспромт без подготовки.',
