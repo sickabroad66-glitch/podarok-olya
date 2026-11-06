@@ -1,5 +1,6 @@
 import { baliMedia, baliAudio } from './bali-media.js';
 import { europeMedia, europeAudio } from './europe-media.js';
+import { childhoodMedia, childhoodAudio } from './childhood-media.js';
 
 // Add another object to reuse the same gallery, viewer and audio player.
 export const memories = [
@@ -68,5 +69,42 @@ export const memories = [
     },
     media: europeMedia,
     audio: europeAudio,
+  },
+  {
+    id: 'childhood',
+    label: 'Семейный альбом',
+    title: 'С самого начала',
+    narrator: 'Папа',
+    audioLabel: 'Папа рассказывает',
+    numberFrames: true,
+    summary: [
+      'Детство, Кама и семейные истории, которые помнит папа.',
+      'На записи чистый экспромт без подготовки.',
+    ],
+    theme: {
+      background: 'assets/art/childhood-album-v1.jpg',
+      backgroundMobile: 'assets/art/childhood-album-mobile-v1.jpg',
+      backgroundPosition: '50% 50%',
+      paper: '#ead8c1',
+      ink: '#593c34',
+      accent: '#a36658',
+      film: '#382a25',
+      reel: 'assets/art/childhood-cassette-v1.png',
+      styles: {
+        '--film-angle': '-2.5deg',
+        '--film-depth': '-2deg',
+        '--cassette-angle': '7deg',
+        '--intro-surface': '#fff9efd9',
+        '--player-ink': '#8d5147',
+        '--player-border': '#ad7868',
+        '--player-face': '#fff9efdf',
+        '--player-hover': '#fffaf2',
+        '--player-playing': '#fbf0e3ee',
+        '--wave-rest': '#b88c7a88',
+        '--wave-played': '#93564b',
+      },
+    },
+    media: childhoodMedia,
+    audio: childhoodAudio,
   },
 ];
